@@ -46,3 +46,5 @@ $env:JAVA_HOME='E:\Developer Tools\Android Studio\jbr'
 ## 声明
 
 本项目不是 IELTS 官方应用，亦未获得 IELTS 相关机构的赞助或认可。IELTS 是其权利人的商标。公开分发词库、释义、音频和图标前，请自行确认相应内容的授权状态。
+
+第三方材料及权利人联系、移除流程详见 [内容与权利声明](NOTICE.md)。
