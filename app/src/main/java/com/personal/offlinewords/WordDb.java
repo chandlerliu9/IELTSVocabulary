@@ -105,6 +105,16 @@ final class WordDb extends SQLiteOpenHelper {
         try{return c.moveToFirst()?from(c):null;}finally{c.close();}
     }
 
+    Word nextSequential(long currentId) {
+        Cursor c=getReadableDatabase().rawQuery("SELECT w.id,w.term,w.ipa,w.pos,w.zh,w.en,w.example_en,w.example_zh,w.audio,COALESCE(s.mastered,0) FROM words w LEFT JOIN states s ON s.word_id=w.id AND s.profile_id=? WHERE w.book_id=? AND COALESCE(s.mastered,0)=0 AND (w.sort_order>(SELECT sort_order FROM words WHERE id=?) OR (w.sort_order=(SELECT sort_order FROM words WHERE id=?) AND w.id>?)) ORDER BY w.sort_order,w.id LIMIT 1",new String[]{""+profileId,""+bookId,""+currentId,""+currentId,""+currentId});
+        try{if(c.moveToFirst())return from(c);}finally{c.close();}
+        int remaining=total()-mastered();
+        if(remaining==0)return null;
+        getWritableDatabase().execSQL("INSERT INTO book_progress(profile_id,book_id,round_no,round_total) VALUES(?,?,2,?) ON CONFLICT(profile_id,book_id) DO UPDATE SET round_no=round_no+1,round_total=excluded.round_total",new Object[]{profileId,bookId,remaining});
+        Cursor first=getReadableDatabase().rawQuery("SELECT w.id,w.term,w.ipa,w.pos,w.zh,w.en,w.example_en,w.example_zh,w.audio,COALESCE(s.mastered,0) FROM words w LEFT JOIN states s ON s.word_id=w.id AND s.profile_id=? WHERE w.book_id=? AND COALESCE(s.mastered,0)=0 ORDER BY w.sort_order,w.id LIMIT 1",new String[]{""+profileId,""+bookId});
+        try{return first.moveToFirst()?from(first):null;}finally{first.close();}
+    }
+
     Word wordById(long id) {
         Cursor c = getReadableDatabase().rawQuery("SELECT w.id,w.term,w.ipa,w.pos,w.zh,w.en,w.example_en,w.example_zh,w.audio,COALESCE(s.mastered,0) FROM words w LEFT JOIN states s ON s.word_id=w.id AND s.profile_id=? WHERE w.id=?", new String[]{""+profileId,""+id});
         try { return c.moveToFirst() ? from(c) : null; } finally { c.close(); }
