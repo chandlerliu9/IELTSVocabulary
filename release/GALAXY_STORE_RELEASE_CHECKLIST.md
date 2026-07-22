@@ -5,7 +5,7 @@
 - 首发版本：1.0.0（versionCode 1）
 - 目标 API：35
 - 最低 Android：6.0（API 23）
-- 发布文件：dist/IELTSVocabulary-v1.0.0.aab
+- 发布文件：最终确认版本的 APK（GitHub Release 不发布 AAB）
 
 ## 提交前必须完成
 
@@ -19,4 +19,4 @@
 
 ## 版本规则
 
-后续更新必须继续使用相同包名和签名，并把 versionCode 递增为 2、3、4……。
+后续更新必须继续使用相同包名和签名，并把 versionCode 递增为 2、3、4……。问题修复增加第三位版本号；功能更新增加第二位版本号。同一功能版本线的 GitHub Release 只保留最终确认的最新修复版。

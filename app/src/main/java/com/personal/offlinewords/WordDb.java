@@ -14,7 +14,7 @@ final class WordDb extends SQLiteOpenHelper {
     long bookId, profileId;
 
     WordDb(Context c) {
-        super(c, "words.db", null, 6);
+        super(c, "words.db", null, 7);
         ctx = c;
         SharedPreferences p = c.getSharedPreferences("selection", 0);
         bookId = p.getLong("book", 1);
@@ -26,7 +26,7 @@ final class WordDb extends SQLiteOpenHelper {
         d.execSQL("CREATE TABLE profiles(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT)");
         d.execSQL("CREATE TABLE words(id INTEGER PRIMARY KEY AUTOINCREMENT,book_id INTEGER,sort_order INTEGER,term TEXT,ipa TEXT,pos TEXT,zh TEXT,en TEXT,example_en TEXT,example_zh TEXT,audio TEXT,edited INTEGER DEFAULT 0)");
         d.execSQL("CREATE TABLE states(profile_id INTEGER,word_id INTEGER,mastered INTEGER DEFAULT 0,last_seen INTEGER DEFAULT 0,favorite INTEGER DEFAULT 0,mastered_at INTEGER DEFAULT 0,seen_round INTEGER DEFAULT 0,PRIMARY KEY(profile_id,word_id))");
-        d.execSQL("CREATE TABLE book_progress(profile_id INTEGER,book_id INTEGER,round_no INTEGER DEFAULT 1,round_total INTEGER DEFAULT 0,PRIMARY KEY(profile_id,book_id))");
+        d.execSQL("CREATE TABLE book_progress(profile_id INTEGER,book_id INTEGER,round_no INTEGER DEFAULT 1,round_total INTEGER DEFAULT 0,current_word_id INTEGER DEFAULT 0,PRIMARY KEY(profile_id,book_id))");
         d.execSQL("CREATE TABLE checkins(profile_id INTEGER,book_id INTEGER,day TEXT,learned INTEGER,mastered_today INTEGER,total_mastered INTEGER,total_words INTEGER,checked_at INTEGER,PRIMARY KEY(profile_id,book_id,day))");
         d.execSQL("INSERT INTO books(name) VALUES('雅思 9400')");
         d.execSQL("INSERT INTO profiles(name) VALUES('默认进度')");
@@ -44,6 +44,7 @@ final class WordDb extends SQLiteOpenHelper {
             d.execSQL("UPDATE states SET seen_round=1 WHERE last_seen>0");
             d.execSQL("CREATE TABLE IF NOT EXISTS book_progress(profile_id INTEGER,book_id INTEGER,round_no INTEGER DEFAULT 1,round_total INTEGER DEFAULT 0,PRIMARY KEY(profile_id,book_id))");
         }
+        if (old < 7) d.execSQL("ALTER TABLE book_progress ADD COLUMN current_word_id INTEGER DEFAULT 0");
     }
 
     void seedIfNeeded(Context c) throws Exception {
@@ -97,6 +98,24 @@ final class WordDb extends SQLiteOpenHelper {
         ensureRound(); int round=currentRound();
         Cursor c = getReadableDatabase().rawQuery("SELECT w.id,w.term,w.ipa,w.pos,w.zh,w.en,w.example_en,w.example_zh,w.audio,COALESCE(s.mastered,0) FROM words w LEFT JOIN states s ON s.word_id=w.id AND s.profile_id=? WHERE w.book_id=? AND COALESCE(s.mastered,0)=0 AND COALESCE(s.seen_round,0)<? ORDER BY w.sort_order LIMIT 1", new String[]{""+profileId,""+bookId,""+round});
         try { return c.moveToFirst() ? from(c) : null; } finally { c.close(); }
+    }
+
+    Word resume() {
+        ensureRound();
+        Cursor saved=getReadableDatabase().rawQuery("SELECT w.id,w.term,w.ipa,w.pos,w.zh,w.en,w.example_en,w.example_zh,w.audio,COALESCE(s.mastered,0) FROM book_progress p JOIN words w ON w.id=p.current_word_id LEFT JOIN states s ON s.word_id=w.id AND s.profile_id=p.profile_id WHERE p.profile_id=? AND p.book_id=? AND w.book_id=? AND COALESCE(s.mastered,0)=0 LIMIT 1",new String[]{""+profileId,""+bookId,""+bookId});
+        try{if(saved.moveToFirst())return from(saved);}finally{saved.close();}
+        Word first=next();
+        if(first!=null)setCurrentWord(first.id);
+        return first;
+    }
+
+    void setCurrentWord(long wordId) {
+        ensureRound();
+        getWritableDatabase().execSQL("UPDATE book_progress SET current_word_id=? WHERE profile_id=? AND book_id=?",new Object[]{wordId,profileId,bookId});
+    }
+
+    void clearCurrentWord() {
+        getWritableDatabase().execSQL("UPDATE book_progress SET current_word_id=0 WHERE profile_id=? AND book_id=?",new Object[]{profileId,bookId});
     }
 
     Word nextExcluding(long excludedId) {
